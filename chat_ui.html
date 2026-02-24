@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delivery Orchestrator Chat</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f2ea;
+        --panel: #fff7ec;
+        --text: #1f1b16;
+        --accent: #c9472d;
+        --accent-strong: #8f2b1a;
+        --border: #d6c6b8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Georgia", "Times New Roman", serif;
+        background: radial-gradient(circle at top, #fff6e6, #efe3d3 60%, #e9d6c1);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 32px auto 48px;
+        padding: 0 20px;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        font-size: 32px;
+        letter-spacing: 0.5px;
+        margin: 0;
+      }
+      .status {
+        font-size: 14px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 12px 30px rgba(31, 27, 22, 0.08);
+      }
+      .messages {
+        height: 420px;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .msg {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 14px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .msg.user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: #fff;
+      }
+      .msg.assistant {
+        align-self: flex-start;
+        background: #fff;
+        border: 1px solid var(--border);
+      }
+      form {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+      }
+      input[type="text"] {
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 16px;
+      }
+      button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        background: var(--accent-strong);
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 24px;
+        }
+        .messages {
+          height: 360px;
+        }
+        form {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Delivery Orchestrator Chat</h1>
+        <span class="status" id="status">idle</span>
+      </header>
+      <section class="panel">
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+          <input
+            id="base-url"
+            type="text"
+            placeholder="Base URL (e.g. http://127.0.0.1:8080)"
+            style="flex:1; min-width:240px;"
+          />
+          <button id="save-url" type="button">Use URL</button>
+        </div>
+        <div class="messages" id="messages"></div>
+        <form id="chat-form">
+          <input id="chat-input" type="text" placeholder="Ask about delivery changes..." autocomplete="off" />
+          <button id="send-btn" type="submit">Send</button>
+        </form>
+      </section>
+    </div>
+    <script>
+      const messagesEl = document.getElementById("messages");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("chat-input");
+      const statusEl = document.getElementById("status");
+      const sendBtn = document.getElementById("send-btn");
+      const sessionId = `ui-${Math.random().toString(16).slice(2, 10)}`;
+      const baseUrlInput = document.getElementById("base-url");
+      const saveUrlBtn = document.getElementById("save-url");
+      const savedBaseUrl = localStorage.getItem("orchBaseUrl");
+      const defaultBaseUrl = window.location.origin === "null" ? "http://127.0.0.1:8080" : window.location.origin;
+      baseUrlInput.value = savedBaseUrl || defaultBaseUrl;
+
+      saveUrlBtn.addEventListener("click", () => {
+        const value = baseUrlInput.value.trim();
+        if (value) {
+          localStorage.setItem("orchBaseUrl", value);
+        }
+      });
+
+      function addMessage(text, role) {
+        const div = document.createElement("div");
+        div.className = `msg ${role}`;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function sendMessage(message) {
+        statusEl.textContent = "thinking";
+        sendBtn.disabled = true;
+        try {
+          const baseUrl = baseUrlInput.value.trim() || defaultBaseUrl;
+          const response = await fetch(`${baseUrl}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, message }),
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || response.statusText);
+          }
+          const data = await response.json();
+          addMessage(data.reply || "(no response)", "assistant");
+        } catch (err) {
+          addMessage(`error: ${err.message}`, "assistant");
+        } finally {
+          statusEl.textContent = "idle";
+          sendBtn.disabled = false;
+        }
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message) return;
+        addMessage(message, "user");
+        input.value = "";
+        sendMessage(message);
+      });
+    </script>
+  </body>
+</html>

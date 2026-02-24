@@ -1,0 +1,64 @@
+graph LR
+  subgraph Python_Backend[Python Backend]
+    ORC["orchestrator.py\n(FastAPI /chat)"]
+    GRAPH["graph.py\n(StateGraph & system prompt)"]
+    LLM["llm.py\n(LLM factory)"]
+    CONFIG["config.py\n(env loader)"]
+    SERIAL["serialization.py\n(message serializer)"]
+    DEBUG["debug_callbacks.py\n(LLM callbacks)"]
+    ODATA["odata_tools.py\n(OData tool wrappers)"]
+    TOOLREG["tool_registry.py\n(tool registry & MCP adapter)"]
+    MCP_CLIENT["mcp_client.py\n(MCP multi-server client)"]
+    SESS["sessions (in-memory)"]
+    TESTS["test_orchestrator.py / test_aicore_connection.py"]
+  end
+
+  subgraph Node_OData[Local OData Service]
+    ODATA_SERVER["server.js\n(Mock OData /odata/v4)"]
+  end
+
+  subgraph MCP_Services[Local MCP Services]
+    MCP_WEATHER["mcp_weather_server.py\n(FastMCP weather tool)"]
+    WEATHER_LIB["weather.py\n(Open-Meteo client)"]
+  end
+
+  subgraph External[External Services]
+    AI_CORE["AI Core / model deployments\n(AICORE_BASE_URL)"]
+    OPEN_METEO["Open-Meteo API"]
+  end
+
+  %% Core flows
+  ORC -->|builds workflow| GRAPH
+  GRAPH -->|uses| LLM
+  GRAPH -->|invokes| ODATA
+  GRAPH -->|invokes| TOOLREG
+  GRAPH -->|callbacks| DEBUG
+
+  %% Tool registry & MCP
+  TOOLREG -->|calls| ODATA_SERVER
+  TOOLREG -->|calls MCP tools via| MCP_CLIENT
+  MCP_CLIENT -->|connects to| MCP_WEATHER
+  MCP_WEATHER -->|calls| WEATHER_LIB
+  WEATHER_LIB -->|queries| OPEN_METEO
+
+  %% Orchestrator internals
+  ORC -->|stores| SESS
+  ORC -->|serializes| SERIAL
+  ORC -->|reads env via| CONFIG
+  LLM -->|fetches models from| AI_CORE
+
+  %% Services startup
+  RUN_ALL["run_all.sh\n(start Node, MCP, orchestrator)"]
+  RUN_ALL --> ODATA_SERVER
+  RUN_ALL --> MCP_WEATHER
+  RUN_ALL --> ORC
+
+  %% Misc
+  LIST_MODELS["list_models.py\n(print model deployments)"]
+  LIST_MODELS --> AI_CORE
+  MODELS_JSON["models.json\n(snapshot of deployments)"]
+  LIST_MODELS --> MODELS_JSON
+
+  %% Grouping visuals
+  ToolRegNote[["tool_registry adapts MCP tools\ninto function schemas for LLM"]]
+  ToolRegNote --- TOOLREG
