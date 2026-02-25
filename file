@@ -1,0 +1,17 @@
+{
+  "@odata.context": "/odata/v4/$metadata#SalesOrders",
+  "value": [
+    {
+      "SalesOrderID": "1000001",
+      "Customer": "Blue Yonder",
+      "Location": "Dublin, Ireland",
+      "Latitude": 53.3498,
+      "Longitude": -6.2603,
+      "OrderDate": "2026-02-18",
+      "DeliveryDate": "2026-02-24",
+      "Status": "Planned",
+      "Weather": "Clear"
+    }
+  ],
+  "note": "Showing first 1 sales orders."
+}

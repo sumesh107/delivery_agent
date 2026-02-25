@@ -75,3 +75,28 @@ def apply_ai_core_env() -> None:
 
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
     return os.getenv(name, default)
+
+
+# Database Configuration
+def get_database_url() -> str:
+    """Get database URL from environment or use default SQLite."""
+    return get_env("DATABASE_URL", "sqlite+aiosqlite:///./sessions.db")
+
+
+def get_session_ttl_days() -> int:
+    """Get session TTL in days from environment."""
+    ttl_str = get_env("SESSION_TTL_DAYS", "7")
+    try:
+        return int(ttl_str)
+    except ValueError:
+        return 7
+
+
+def is_db_enabled() -> bool:
+    """Check if database persistence is enabled."""
+    return get_env("DB_ENABLED", "true").lower() in ("true", "1", "yes")
+
+
+def get_sql_echo() -> bool:
+    """Check if SQL echo is enabled for debugging."""
+    return get_env("SQL_ECHO", "false").lower() in ("true", "1", "yes")

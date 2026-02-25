@@ -1,7 +1,7 @@
 import json
 from typing import Any, Optional
 
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -28,7 +28,24 @@ def build_graph(
 
     async def assistant(state: MessagesState) -> dict[str, Any]:
         config = {"callbacks": callbacks} if callbacks else None
-        response = await llm_with_tools.ainvoke([system_message] + state["messages"], config=config)
+        # Filter messages to ensure ToolMessages only follow AIMessage with tool_calls
+        filtered_messages = []
+        in_tool_response_block = False
+        for msg in state["messages"]:
+            if isinstance(msg, ToolMessage):
+                # Only include ToolMessage if we're in a tool response block
+                if in_tool_response_block:
+                    filtered_messages.append(msg)
+                # Stay in tool response block for consecutive ToolMessages
+            elif isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
+                # AIMessage with tool_calls starts a tool response block
+                filtered_messages.append(msg)
+                in_tool_response_block = True
+            else:
+                # Any other message ends the tool response block
+                filtered_messages.append(msg)
+                in_tool_response_block = False
+        response = await llm_with_tools.ainvoke([system_message] + filtered_messages, config=config)
         return {"messages": [response]}
 
     def _summarize_tool_content(content: Any) -> str:
