@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 ## Run
 ```bash
-uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
 ```
 
 ## Start Services
@@ -26,7 +26,7 @@ node server.js
 ```
 
 ```bash
-python mcp_weather_server.py
+python -m mcp_services.weather_server
 ```
 
 ## One-Command Startup

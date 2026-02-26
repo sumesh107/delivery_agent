@@ -16,9 +16,9 @@ async def test_integration():
     # Test 1: Database initialization
     print("✓ Test 1: Checking database module imports...")
     try:
-        from database import init_db, close_db
-        from models import SessionRecord, MessageRecord
-        from repositories import SessionRepository
+        from db.database import init_db, close_db
+        from db.models import SessionRecord, MessageRecord
+        from db.repositories import SessionRepository
         print("  ✓ All database modules imported successfully")
     except Exception as e:
         print(f"  ✗ Failed to import database modules: {e}")
@@ -27,7 +27,7 @@ async def test_integration():
     # Test 2: Configuration
     print("\n✓ Test 2: Checking configuration...")
     try:
-        from config import is_db_enabled, get_session_ttl_days, get_database_url
+        from core.config import is_db_enabled, get_session_ttl_days, get_database_url
         db_enabled = is_db_enabled()
         ttl_days = get_session_ttl_days()
         db_url = get_database_url()
@@ -41,7 +41,7 @@ async def test_integration():
     # Test 3: Database initialization
     print("\n✓ Test 3: Initializing database...")
     try:
-        from database import init_db, close_db
+        from db.database import init_db, close_db
         await init_db()
         print("  ✓ Database initialization successful")
     except Exception as e:
@@ -51,8 +51,8 @@ async def test_integration():
     # Test 4: Create a test session
     print("\n✓ Test 4: Testing session repository...")
     try:
-        from database import async_session_maker
-        from repositories import SessionRepository
+        from db.database import async_session_maker
+        from db.repositories import SessionRepository
         from langchain_core.messages import HumanMessage, AIMessage
         
         async with async_session_maker() as session:

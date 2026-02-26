@@ -78,11 +78,14 @@ Cleanup (Daily @ 2 AM via scheduler):
 ---
 
 ## Directory Structure
-- `orchestrator.py` – FastAPI app, main entry point
-- `graph.py` – LangChain workflow, system prompt, memory
-- `llm.py` – LLM instantiation and selection
-- `weather.py` – Weather tool
-- `odata_tools.py` – OData tool wrappers
+- `app/orchestrator.py` – FastAPI app, main entry point
+- `core/graph.py` – LangChain workflow, system prompt, memory
+- `core/llm.py` – LLM instantiation and selection
+- `db/` – Database engine, models, repositories, cleanup tasks
+- `tools/odata_tools.py` – OData tool wrappers
+- `mcp_services/` – MCP client, weather server, weather helper
+- `cli/chat_cli.py` – Terminal chat client
+- `tests/` – Test suite
 - `server.js` – OData Node service
 - `requirements.txt` – Python dependencies
 - `README.md` – This file
@@ -95,29 +98,29 @@ Cleanup (Daily @ 2 AM via scheduler):
 3. Run the orchestrator main app:
    - Start FastAPI app for chat endpoint:
      ```bash
-     python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+     python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
      ```
    - Custom TTL (e.g., 3 days):
      ```bash
-     SESSION_TTL_DAYS=3 python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+    SESSION_TTL_DAYS=3 python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
      ```
    - PostgreSQL production mode:
      ```bash
      DATABASE_URL=postgresql+asyncpg://user:pass@localhost/delivery_db \
-       python -m uvicorn orchestrator:app --host 0.0.0.0 --port 8080
+       python -m uvicorn app.orchestrator:app --host 0.0.0.0 --port 8080
      ```
    - Disable persistence (in-memory only):
      ```bash
-     DB_ENABLED=false python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+    DB_ENABLED=false python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
      ```
    - Enable SQL debugging:
      ```bash
-     SQL_ECHO=true python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+    SQL_ECHO=true python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
      ```
 4. Run services:
    - OData service: `node server.js`
-   - MCP weather server: `python mcp_weather_server.py`
-5. Test: `python test_orchestrator.py`
+  - MCP weather server: `python -m mcp_services.weather_server`
+5. Test: `python tests/test_orchestrator.py`
 
 ### One-Command Startup
 - Start OData, MCP weather, and orchestrator together:
@@ -128,8 +131,8 @@ Cleanup (Daily @ 2 AM via scheduler):
 ---
 
 ## Customization
-- Add new tools by placing modules in the repo root.
-- Edit the system prompt in `graph.py` as needed.
+- Add new tools by placing modules in `tools/` or `mcp_services/`.
+- Edit the system prompt in `core/graph.py` as needed.
 
 ---
 

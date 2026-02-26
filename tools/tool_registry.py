@@ -4,7 +4,7 @@ from typing import Any, Optional
 import httpx
 from fastmcp.client import Client
 
-from config import get_env
+from core.config import get_env
 
 
 class ToolRegistry:

@@ -7,8 +7,8 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy import text
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 
-from models import Base
-from repositories import SessionRepository
+from db.models import Base
+from db.repositories import SessionRepository
 
 
 

@@ -1,14 +1,11 @@
 """Background tasks for session management (cleanup, etc)."""
 
-import asyncio
 import logging
 from datetime import datetime
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from config import is_db_enabled, get_session_ttl_days
-from database import async_session_maker
-from repositories import SessionRepository
+from core.config import is_db_enabled
+from db.database import async_session_maker
+from db.repositories import SessionRepository
 
 logger = logging.getLogger(__name__)
 

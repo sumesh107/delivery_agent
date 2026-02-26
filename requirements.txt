@@ -3,6 +3,7 @@ langgraph
 generative-ai-hub-sdk
 python-dotenv==1.0.1
 fastmcp
+mcp
 requests
 fastapi
 uvicorn

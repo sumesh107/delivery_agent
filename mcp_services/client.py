@@ -3,7 +3,7 @@ from typing import Any
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from config import get_env
+from core.config import get_env
 
 
 def _normalize_transport(value: str | None) -> str:

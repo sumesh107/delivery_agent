@@ -1,12 +1,13 @@
 """Database initialization and session management."""
 
 import os
+from pathlib import Path
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from sqlalchemy.pool import StaticPool
 
-from config import get_env
+from core.config import get_env
 
 
 # Determine database URL
@@ -17,7 +18,8 @@ def get_database_url() -> str:
         return db_url
     
     # Default to SQLite in repo root
-    db_path = os.path.join(os.path.dirname(__file__), "sessions.db")
+    project_root = Path(__file__).resolve().parents[1]
+    db_path = os.path.join(project_root, "sessions.db")
     return f"sqlite+aiosqlite:///{db_path}"
 
 
@@ -62,7 +64,7 @@ async def init_db():
     )
     
     # Import models to ensure they're registered
-    from models import Base
+    from db.models import Base
     
     # Create all tables
     async with engine.begin() as conn:

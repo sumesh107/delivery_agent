@@ -13,7 +13,7 @@ Your delivery agent now has **persistent session storage** using SQLite (develop
 
 ## What Was Implemented
 
-### 1. **Database Layer** (`database.py`)
+### 1. **Database Layer** (`db/database.py`)
 - Async SQLAlchemy engine initialization
 - Support for SQLite (dev) and PostgreSQL (prod)
 - Connection pooling with graceful shutdown
@@ -27,7 +27,7 @@ DB_ENABLED=true                                 # Enable/disable persistence
 SQL_ECHO=false                                  # Debug SQL queries
 ```
 
-### 2. **Data Models** (`models.py`)
+### 2. **Data Models** (`db/models.py`)
 Two SQLAlchemy ORM models:
 
 **SessionRecord**
@@ -52,7 +52,7 @@ Two SQLAlchemy ORM models:
 - `idx_sessions_updated_at`: Fast session lookup
 - `idx_messages_session_sequence`: Efficient message retrieval
 
-### 3. **Repository Layer** (`repositories.py`)
+### 3. **Repository Layer** (`db/repositories.py`)
 Clean data access abstraction via `SessionRepository` class:
 
 ```python
@@ -70,7 +70,7 @@ async get_all_expired_sessions() → List[str]     # Monitor expiration
 - Preserves: message roles, content, tool call IDs, and AIMessage metadata
 - Automatically skips system messages (added by workflow at invocation time)
 
-### 4. **Orchestrator Integration** (`orchestrator.py`)
+### 4. **Orchestrator Integration** (`app/orchestrator.py`)
 Modified FastAPI app with database persistence:
 
 **Startup/Shutdown Events:**
@@ -88,7 +88,7 @@ Modified FastAPI app with database persistence:
 - Returns database connectivity status
 - Fully backward compatible
 
-### 5. **Configuration** (`config.py`)
+### 5. **Configuration** (`core/config.py`)
 New helper functions:
 ```python
 get_database_url() → str           # Get DATABASE_URL or default
@@ -116,7 +116,7 @@ alembic upgrade head          # Apply pending migrations
 alembic revision --autogenerate -m "Description"  # Generate new migration
 ```
 
-### 7. **Background Tasks** (`background_tasks.py`)
+### 7. **Background Tasks** (`db/background_tasks.py`)
 Session cleanup utilities:
 
 ```python
@@ -131,9 +131,9 @@ async stop_cleanup_scheduler(app)           # Graceful shutdown
 pip install apscheduler  # Enable scheduled cleanup
 ```
 
-Then in `orchestrator.py`:
+Then in `app/orchestrator.py`:
 ```python
-from background_tasks import start_cleanup_scheduler, stop_cleanup_scheduler
+from db.background_tasks import start_cleanup_scheduler, stop_cleanup_scheduler
 
 @app.on_event("startup")
 async def startup():
@@ -148,7 +148,7 @@ async def shutdown():
 ### 8. **Testing Suite**
 Two comprehensive test modules:
 
-**test_database.py (7 tests, all passing ✅)**
+**tests/test_database.py (7 tests, all passing ✅)**
 - `test_create_session`: Session creation
 - `test_session_exists`: Existence checks
 - `test_save_and_load_messages`: Persistence roundtrip
@@ -157,7 +157,7 @@ Two comprehensive test modules:
 - `test_cleanup_expired_sessions`: Cleanup job
 - `test_message_serialization_roundtrip`: Message fidelity
 
-**test_integration.py**
+**tests/test_integration.py**
 - End-to-end integration verification
 - Database initialization test
 - Configuration validation
@@ -274,20 +274,20 @@ CREATE TABLE messages (
 
 ```bash
 # Default: SQLite in ./sessions.db with 7-day TTL
-python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
 
 # Custom TTL (3 days)
-SESSION_TTL_DAYS=3 python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+SESSION_TTL_DAYS=3 python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
 
 # PostgreSQL production mode
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost/delivery_db \
-  python -m uvicorn orchestrator:app --host 0.0.0.0 --port 8080
+   python -m uvicorn app.orchestrator:app --host 0.0.0.0 --port 8080
 
 # Disable persistence (in-memory only)
-DB_ENABLED=false python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+DB_ENABLED=false python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
 
 # Enable SQL debugging
-SQL_ECHO=true python -m uvicorn orchestrator:app --host 127.0.0.1 --port 8080
+SQL_ECHO=true python -m uvicorn app.orchestrator:app --host 127.0.0.1 --port 8080
 ```
 
 ### Checking Health
@@ -388,7 +388,7 @@ Check that DATABASE_URL is valid:
 echo $DATABASE_URL
 
 To debug:
-SQL_ECHO=true python -m uvicorn orchestrator:app --port 8080
+SQL_ECHO=true python -m uvicorn app.orchestrator:app --port 8080
 ```
 
 ### Issue: "Stale connection" errors
@@ -417,7 +417,7 @@ To upgrade an existing deployment:
    ```
 3. **Restart orchestrator:**
    ```bash
-   python -m uvicorn orchestrator:app --port 8080
+   python -m uvicorn app.orchestrator:app --port 8080
    ```
 4. **Verify health:**
    ```bash
@@ -431,19 +431,19 @@ No session data loss—existing in-memory sessions will continue to work via fal
 ## Files Modified/Created
 
 ### Created:
-- ✅ `database.py` - Database initialization
-- ✅ `models.py` - SQLAlchemy ORM models
-- ✅ `repositories.py` - Data access layer
-- ✅ `background_tasks.py` - Cleanup utilities
-- ✅ `test_database.py` - 7 unit tests
-- ✅ `test_integration.py` - Integration tests
+- ✅ `db/database.py` - Database initialization
+- ✅ `db/models.py` - SQLAlchemy ORM models
+- ✅ `db/repositories.py` - Data access layer
+- ✅ `db/background_tasks.py` - Cleanup utilities
+- ✅ `tests/test_database.py` - 7 unit tests
+- ✅ `tests/test_integration.py` - Integration tests
 - ✅ `migrations/` - Alembic migration system
 - ✅ `alembic.ini` - Alembic configuration
 
 ### Modified:
 - ✅ `requirements.txt` - Added sqlalchemy, alembic, aiosqlite, greenlet
-- ✅ `config.py` - Added database configuration helpers
-- ✅ `orchestrator.py` - Integrated database with dual-write
+- ✅ `core/config.py` - Added database configuration helpers
+- ✅ `app/orchestrator.py` - Integrated database with dual-write
 
 ### Database Files:
 - ✅ `sessions.db` - SQLite database (52KB after tests)
@@ -488,7 +488,7 @@ pip install sqlalchemy alembic aiosqlite greenlet
 alembic upgrade head
 
 # 3. Start orchestrator
-python -m uvicorn orchestrator:app --port 8080
+python -m uvicorn app.orchestrator:app --port 8080
 
 # 4. Test it
 curl -X POST http://localhost:8080/chat \

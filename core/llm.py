@@ -2,7 +2,7 @@ import inspect
 import os
 from typing import Any
 
-from config import apply_ai_core_env
+from core.config import apply_ai_core_env
 
 
 def build_llm() -> Any:

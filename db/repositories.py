@@ -13,7 +13,7 @@ from langchain_core.messages import (
     SystemMessage,
 )
 
-from models import SessionRecord, MessageRecord
+from db.models import SessionRecord, MessageRecord
 
 
 class SessionRepository:
