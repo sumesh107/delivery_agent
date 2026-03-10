@@ -33,3 +33,7 @@ node_modules/
 # Editor
 .vscode/
 .idea/
+
+# Roadmap and docs
+FUTURE_IMPROVEMENTS.md
+PERSISTENCE_SETUP.md

@@ -6,49 +6,28 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from core.config import get_env
 
 
-def _normalize_transport(value: str | None) -> str:
-    normalized = (value or "http").strip().lower()
-    if normalized == "streamable-http":
-        return "streamable_http"
-    return normalized
-
-
 def _load_mcp_connections() -> dict[str, Any]:
+    """Load MCP server connections from environment configuration."""
+    # If explicit JSON config provided, use it
     raw = get_env("MCP_SERVERS_JSON")
     if raw:
-        data = json.loads(raw)
-        connections: dict[str, Any] = {}
-        for item in data:
-            name = item.get("name")
-            if not name:
-                continue
-            connections[name] = {
-                "url": item.get("url"),
-                "transport": item.get("transport", "http"),
-            }
-        if connections:
-            return connections
-
-    base_url = (get_env("MCP_BASE_URL", "http://127.0.0.1:8000") or "").rstrip("/")
-    transport = _normalize_transport(get_env("MCP_TRANSPORT", "http"))
-
-    if base_url.lower().endswith("/mcp"):
         return {
-            "weather": {
-                "url": base_url,
-                "transport": "http",
-            }
+            item["name"]: {"url": item["url"], "transport": item.get("transport", "http")}
+            for item in json.loads(raw)
+            if item.get("name")
         }
 
-    if base_url.lower().endswith("/sse"):
-        return {
-            "weather": {
-                "url": base_url,
-                "transport": "sse",
-            }
-        }
+    # Simple default configuration
+    base_url = get_env("MCP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    transport = get_env("MCP_TRANSPORT", "http")
 
+    # Normalize transport name
+    if transport == "streamable-http":
+        transport = "streamable_http"
+
+    # Determine path based on transport
     path = "/mcp" if transport in ("http", "streamable_http") else "/sse"
+
     return {
         "weather": {
             "url": f"{base_url}{path}",

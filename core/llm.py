@@ -2,7 +2,7 @@ import inspect
 import os
 from typing import Any
 
-from core.config import apply_ai_core_env
+from core.config import apply_ai_core_env, is_debug_enabled
 
 
 def build_llm() -> Any:
@@ -11,7 +11,7 @@ def build_llm() -> Any:
     deployment_id = os.getenv("LLM_DEPLOYMENT_ID", "d7c46acfaeca52aa")
     from gen_ai_hub.proxy.langchain.init_models import init_llm
 
-    if os.getenv("ORCH_DEBUG", "0") == "1":
+    if is_debug_enabled():
         print(f"[LLM] using model_name={model_name} deployment_id={deployment_id}")
 
     signature = inspect.signature(init_llm)

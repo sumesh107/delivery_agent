@@ -1,25 +1,24 @@
-import os
 from pathlib import Path
 from traceback import format_exception
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.debug_callbacks import DebugCallbackHandler
 from core.graph import build_graph
 from core.llm import build_llm
 from core.serialization import serialize_message
-from core.config import is_db_enabled, get_session_ttl_days
+from core.config import is_db_enabled, get_session_ttl_days, is_debug_enabled
 from db.database import init_db, close_db, get_session as get_db_session
 from db.repositories import SessionRepository
 from mcp_services.client import build_mcp_client
 from tools.odata_tools import get_odata_tools
-
 
 
 app = FastAPI()
@@ -35,9 +34,6 @@ class ChatResponse(BaseModel):
     session_id: str
     reply: str
     messages: list[dict[str, Any]]
-
-
-sessions: Dict[str, list[BaseMessage]] = {}
 
 
 @app.on_event("startup")
@@ -68,11 +64,20 @@ async def _get_workflow() -> Any:
     if hasattr(app.state, "workflow"):
         return app.state.workflow
 
-    mcp_client = build_mcp_client()
-    mcp_tools = await mcp_client.get_tools()
-    tools = get_odata_tools() + mcp_tools
+    # Get tools
+    tools = get_odata_tools()
 
-    callbacks = [DebugCallbackHandler()] if os.getenv("ORCH_DEBUG", "0") == "1" else None
+    # Try to get MCP tools, but don't fail if MCP is unavailable
+    try:
+        mcp_client = build_mcp_client()
+        mcp_tools = await mcp_client.get_tools()
+        tools = tools + mcp_tools
+        print(f"✓ Loaded {len(mcp_tools)} MCP tools")
+    except Exception as e:
+        print(f"⚠ MCP tools unavailable: {e}")
+        print("⚠ Continuing with OData tools only")
+
+    callbacks = [DebugCallbackHandler()] if is_debug_enabled() else None
     checkpointer = InMemorySaver()
     workflow = build_graph(build_llm(), tools, callbacks=callbacks).compile(checkpointer=checkpointer)
     app.state.workflow = workflow
@@ -82,9 +87,9 @@ async def _get_workflow() -> Any:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, db: Optional[AsyncSession] = Depends(get_db_session)) -> ChatResponse:
     """Process a chat message with optional database persistence."""
-    # Load session history (try DB first, then fallback to Dict)
+    # Load session history from DB
     history: list[BaseMessage] = []
-    
+
     if is_db_enabled() and db is not None:
         try:
             repository = SessionRepository(db)
@@ -99,11 +104,8 @@ async def chat(request: ChatRequest, db: Optional[AsyncSession] = Depends(get_db
                 await db.commit()
         except Exception as e:
             print(f"⚠ Failed to load session from DB: {e}")
-            # Fallback to in-memory sessions
-            history = sessions.get(request.session_id, [])
-    else:
-        history = sessions.get(request.session_id, [])
-    
+            print(f"⚠ Continuing with empty history. Enable checkpointer fallback if needed.")
+
     messages = _coerce_messages(history)
     messages.append(HumanMessage(content=request.message))
 
@@ -118,10 +120,8 @@ async def chat(request: ChatRequest, db: Optional[AsyncSession] = Depends(get_db
         raise HTTPException(status_code=500, detail=detail) from exc
 
     updated_messages = _coerce_messages(result["messages"])
-    
-    # Dual-write to both Dict and DB (for backward compatibility and resilience)
-    sessions[request.session_id] = updated_messages
-    
+
+    # Save session to DB
     if is_db_enabled() and db is not None:
         try:
             repository = SessionRepository(db)
@@ -133,7 +133,6 @@ async def chat(request: ChatRequest, db: Optional[AsyncSession] = Depends(get_db
             await db.commit()
         except Exception as e:
             print(f"⚠ Failed to save session to DB: {e}")
-            # Session still in Dict, so not a critical failure
 
     reply = ""
     for message in reversed(updated_messages):
@@ -155,18 +154,17 @@ async def chat(request: ChatRequest, db: Optional[AsyncSession] = Depends(get_db
 async def health(db: Optional[AsyncSession] = Depends(get_db_session)) -> dict[str, Any]:
     """Health check including database connectivity."""
     health_status: dict[str, Any] = {"status": "ok"}
-    
+
     if is_db_enabled() and db is not None:
         try:
-            repository = SessionRepository(db)
             # Simple connectivity test
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             health_status["database"] = "connected"
         except Exception as e:
             health_status["database"] = f"error: {str(e)}"
     else:
         health_status["database"] = "disabled"
-    
+
     return health_status
 
 
@@ -176,13 +174,12 @@ async def chat_ui() -> FileResponse:
 
 
 def _format_exception(exc: Exception) -> str:
-    debug = os.getenv("ORCH_DEBUG", "0") == "1"
     if isinstance(exc, ExceptionGroup):
         messages = []
         for child in exc.exceptions:
             messages.append(_format_exception(child))
         return " | ".join(messages)
-    if debug:
+    if is_debug_enabled():
         return "".join(format_exception(exc))
     return str(exc)
 

@@ -71,11 +71,15 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for FastAPI to get DB session."""
-    if async_session_maker is None:
-        raise RuntimeError("Database not initialized. Call init_db() at app startup.")
-    
+async def get_session() -> AsyncGenerator[AsyncSession | None, None]:
+    """Dependency for FastAPI to get DB session. Returns None if DB is disabled."""
+    from core.config import is_db_enabled
+
+    # If DB is disabled or not initialized, yield None
+    if not is_db_enabled() or async_session_maker is None:
+        yield None
+        return
+
     async with async_session_maker() as session:
         try:
             yield session

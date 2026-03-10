@@ -100,3 +100,8 @@ def is_db_enabled() -> bool:
 def get_sql_echo() -> bool:
     """Check if SQL echo is enabled for debugging."""
     return get_env("SQL_ECHO", "false").lower() in ("true", "1", "yes")
+
+
+def is_debug_enabled() -> bool:
+    """Check if debug mode is enabled."""
+    return get_env("ORCH_DEBUG", "0") == "1"
